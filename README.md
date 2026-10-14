@@ -1,2 +1,2 @@
-# SciBmadPlotting.jl
-Plotting for SciBmad
+# SciBmadSimUtils.jl
+SciBmad simulation utilities

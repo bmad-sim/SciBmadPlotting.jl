@@ -1,197 +1,191 @@
+#= Translation of SciBmad parameter groups to PALS parameter groups. =#
+
 """
-    Internal: add_parameter_group!(format_dict::OrderedDict, parameter_group::T) where {T<:AbstractParams}
+    Internal: pals_group(group::AbstractParams) -> OrderedDict
 
-Modifies `format_dict` to have a new entry which stores a dictionary whose keys are parameter
-names from `parameter_group` and whose values are the initialized values corresponding
-to those parameter names.
+Returns the PALS parameter group corresponding to the SciBmad parameter group `group`,
+whose `DefExpr`s must already be evaluated. Parameters with default values are left out
+so the returned dictionary may be empty.
 
-This function is used as a helper to `lattice_to_pals()` to create the dictionaries
-that store the fields and field values of a parameter group and populate the dictionaries
-associated with elements with them.
-
-## Arguments
-- `parameter_info`  -- The dictionary to be modified which represents the information about a line element.
-- `parameter_group` -- An `AbstractParams` object containing the parameters to extract to `acc`.
+This method handles groups whose parameters translate one-to-one: the PALS name of each
+parameter is looked up in `SCIBMAD_NAME_TO_PALS_NAME`.
 """
-function add_parameter_group!(parameter_info::OrderedDict, parameter_group::T) where{T <: AbstractParams}
-
-    acc = OrderedDict() 
-
-    # Populate the accumulator with properties
-    for name in propertynames(parameter_group)
-        value = getproperty(parameter_group, name)
-        
-        # If the value is default, skip it
+function pals_group(group::T) where {T<:Union{AlignmentParams,PatchParams,BendParams,MetaParams}}
+    names = SCIBMAD_NAME_TO_PALS_NAME[Base.typename(T).wrapper]
+    acc = OrderedDict{String,Any}()
+    for name in fieldnames(T)
+        value = getfield(group, name)
         isdefault(value) && continue
-        
-        # If the value is a `String`, convert it to a `Symbol`
-        if value isa String
-            value = Symbol(value)
-        end
-        
-        # Access the PALS name of this parameter group
-        pals_name = get(SCIBMAD_NAME_TO_PALS_NAME_MAP, name, name)
-        
-        # Accumulate
-        acc[pals_name] = value
+        acc[get(names, name, String(name))] = pals_value(value)
     end
-    
-    # If the accumulator is empty, do nothing
-    isempty(acc) && return
-    
-    # If the accumulator isn't empty, mutate `parameter_info`
-    parameter_info[PARAMTYPES_TO_PALSNAMES_MAP[T]] = acc
+    return acc
 end
 
-#= ApertureParams overload =#
-function add_parameter_group!(parameter_info::OrderedDict, aperture::ApertureParams)
-    acc = OrderedDict()
-    
-    # Limits
+function pals_group(aperture::ApertureParams)
+    acc = OrderedDict{String,Any}()
     limits = (
-    (:x1_limit, -Inf32, :x_min),
-    (:x2_limit, Inf32, :x_max),
-    (:y1_limit, -Inf32, :y_min),
-    (:y2_limit, Inf32, :y_max),
+        (aperture.x1_limit, "x_min"),
+        (aperture.x2_limit, "x_max"),
+        (aperture.y1_limit, "y_min"),
+        (aperture.y2_limit, "y_max"),
     )
-    
-    for (source, default, dest) in limits
-        value = getproperty(aperture, source)
-        value != default && (acc[dest] = value)
+    for (value, name) in limits
+        isfinite(value) && (acc[name] = pals_value(value))
     end
-    
-    # Shape
-    shape = get(APERTURE_SHAPE_TO_PALS_MAP, aperture.aperture_shape, :INVALID)
-    
-    # If shape is invalid, error
-    shape === :INVALID && error("Unsupported aperture shape: $(aperture.aperture_shape)")
 
-    # If shape is nothing, move on
-    !isnothing(shape) && (acc[:shape] = shape)
-    
-    # Location
-    location = get(APERTURE_LOCATION_TO_PALS_MAP, aperture.aperture_at, :INVALID)
-    
-    # If location is invalid, error
-    location === :INVALID && error("Unsupported aperture location: $(aperture.aperture_at)")
-    
-    # If location is nothing, move on
-    !isnothing(location) && (acc[:location] = location)
-    
-    # Non-default booleans
-    aperture.aperture_shifts_with_body && (acc[:aperture_shifts_with_body] = true)
-    !aperture.aperture_active && (acc[:aperture_active] = false)
-    
-    # If nothing was added to the accumulator, do nothing
-    isempty(acc) || (parameter_info[:ApertureP] = acc)
-    return
+    # With no finite limits there is no aperture
+    isempty(acc) && return acc
+
+    shape = APERTURE_SHAPE_TO_PALS[aperture.aperture_shape]
+    isnothing(shape) || (acc["shape"] = shape)
+
+    location = APERTURE_AT_TO_PALS[aperture.aperture_at]
+    isnothing(location) || (acc["location"] = location)
+
+    # The PALS default is false but the SciBmad default is true
+    aperture.aperture_shifts_with_body && (acc["aperture_shifts_with_body"] = true)
+    return acc
 end
 
-#= RFParams overload =#
-function add_parameter_group!(parameter_info::OrderedDict, rf::RFParams)
-    acc = OrderedDict()
-    
-    # Voltage
-    !isdefault(rf.voltage) && (acc[:voltage] = rf.voltage)
-    
-    # Phase (radians -> turns)
-    !isdefault(rf.phi0) &&
-    (acc[:phase] = rf.phi0 / (2π))
-    
-    # Zero phase
-    zero_phase = get(ZERO_PHASE_TO_PALS_MAP, rf.zero_phase, :INVALID)
-    
-    # If zero phase is invalid, error
-    zero_phase === :INVALID && error("Unsupported zero phase reference: $(rf.zero_phase)")
-    
-    # If zero phase is nothing, move on
-    !isnothing(zero_phase) && (acc[:zero_phase] = zero_phase)
-    
-    # Frequency / harmonic number
-    if (rf.rate != 0 && rf.rate_meaning != RateMeaning.Indeterminate)
-        field = get(RATE_MEANING_TO_PALS_MAP, rf.rate_meaning, :INVALID)
-        
-        # If field is invalid, error
-        field === :INVALID && error("Unsupported rate meaning: $(rf.rate_meaning)")
-        
-        acc[field] = rf.rate
+function pals_group(rf::RFParams)
+    acc = OrderedDict{String,Any}()
+    if rf.rate_meaning != RateMeaning.Indeterminate
+        acc[RATE_MEANING_TO_PALS[rf.rate_meaning]] = pals_value(rf.rate)
     end
-    
-    # Cavity type
-    rf.traveling_wave && (acc[:cavity_type] = :TRAVELING_WAVE)
-    
-    isempty(acc) || (parameter_info[:RFP] = acc)
-    return
+    isdefault(rf.voltage) || (acc["voltage"] = pals_value(rf.voltage))
+    isdefault(rf.phi0) || (acc["phase"] = pals_value(rf.phi0))   # Both in radians
+
+    zero_phase = PHASE_REF_TO_PALS[rf.zero_phase]
+    isnothing(zero_phase) || (acc["zero_phase"] = zero_phase)
+
+    rf.traveling_wave && (acc["cavity_type"] = "TRAVELING_WAVE")
+    return acc
 end
 
-#= BMultipoleParams Overload =#
-function add_parameter_group!(parameter_info::OrderedDict, parameter_group::BMultipoleParams)
-    acc = OrderedDict()
-    
-    # This code is adapted from the override of `show()` in multipole.jl
-    for bm in parameter_group
-        if bm.n != 0
+function pals_group(group::BMultipoleParams)
+    acc = OrderedDict{String,Any}()
+    for bm in group
+        if !isdefault(bm.n)
             key = BMULTIPOLE_STRENGTH_INVERSE_MAP[(true, bm.order, bm.normalized, bm.integrated)]
-            acc[key] = bm.n
+            acc[String(key)] = pals_value(bm.n)
         end
-
-        if bm.s != 0
+        if !isdefault(bm.s)
             key = BMULTIPOLE_STRENGTH_INVERSE_MAP[(false, bm.order, bm.normalized, bm.integrated)]
-            acc[key] = bm.s
+            acc[String(key)] = pals_value(bm.s)
         end
-
-        if bm.tilt != 0
-            key = BMULTIPOLE_TILT_INVERSE_MAP[bm.order]
-            acc[key] = bm.tilt
+        if !isdefault(bm.tilt)
+            acc[String(BMULTIPOLE_TILT_INVERSE_MAP[bm.order])] = pals_value(bm.tilt)
         end
     end
-    # End adapted code
+    return acc
+end
 
-    # If `acc` is empty, don't do anything
-    isempty(acc) || (parameter_info[:MagneticMultipoleP] = acc)
+function pals_group(group::EMultipoleParams)
+    acc = OrderedDict{String,Any}()
+    for em in group
+        if !isdefault(em.n)
+            key = EMULTIPOLE_STRENGTH_INVERSE_MAP[(true, em.order, em.integrated)]
+            acc[String(key)] = pals_value(em.n)
+        end
+        if !isdefault(em.s)
+            key = EMULTIPOLE_STRENGTH_INVERSE_MAP[(false, em.order, em.integrated)]
+            acc[String(key)] = pals_value(em.s)
+        end
+        if !isdefault(em.etilt)
+            # SciBmad etiltN is PALS tiltN in ElectricMultipoleP
+            key = String(EMULTIPOLE_TILT_INVERSE_MAP[em.order])
+            acc[replace(key, r"^etilt" => "tilt")] = pals_value(em.etilt)
+        end
+    end
+    return acc
+end
 
-    return
+# Function valued parameter groups cannot be represented in PALS. They are written as
+# SciBmad extensions so that their presence is not lost.
+function pals_group(group::Union{MapParams,FourPotentialParams,EMFieldParams})
+    acc = OrderedDict{String,Any}()
+    for name in fieldnames(typeof(group))
+        value = getfield(group, name)
+        isnothing(value) && continue
+        acc[String(name)] = value isa Union{Bool,Real,AbstractString} ? pals_value(value) : repr(value)
+    end
+    return acc
 end
 
 """
-    Internal: format_beamline(line::Vector{LineElement}, branch::Branch)
+    Internal: pals_tracking(method) -> OrderedDict
 
-Creates a PALS-formatted nested dictionary with the name of `branch` and a `line`
-of the elements of all the SciBmad-beamlines in this SciBmad-branch.
-
-## Arguments
-- `line`  -- A vector containing all the `LineElement`s in `branch` in order
-- `branch` -- The `Branch` this is trying to format
+Returns the `SciBmad` part of the PALS `TrackingP` group for the tracking method `method`.
 """
-function scibmad_branch_to_pals_beamline(line::Vector{LineElement}, branch::Branch)
-    return OrderedDict(
-        Symbol(branch.name) => OrderedDict(
-            :kind => :Beamline
-            :line => line
-        )
-    )
+function pals_tracking(method)
+    acc = OrderedDict{String,Any}("tracking_method" => String(nameof(typeof(method))))
+    for name in fieldnames(typeof(method))
+        value = getfield(method, name)
+        acc[String(name)] = value isa Union{Bool,Real,AbstractString} ? pals_value(value) : repr(value)
+    end
+    return acc
 end
 
 """
-    Internal: format_beamline(line::Vector{LineElement}, branch::Branch)
+    Internal: element_to_pals(ele::LineElement, context::Context) -> OrderedDict
 
-Creates a PALS-formatted nested dictionary with the name of `branch` and a `line`
-of the elements of all the SciBmad-beamlines in this SciBmad-branch.
-
-## Arguments
-- `line`  -- A vector containing all the `LineElement`s in `branch` in order
-- `branch` -- The `Branch` this is trying to format
+Returns the PALS definition of the element `ele`, not including its name, with all
+`DefExpr`s evaluated in `context`. Inherited parameter groups are included.
+`BeamlineParams` and `InitialBeamlineParams` are not part of the definition: the reference
+parameters are written by `beamline_reference`.
 """
-function scibmad_lattice_to_pals_lattice(beamlines::Vector{Branch}, lattice::Lattice)
-    branches = []
-    ret = OrderedDict(
-        Symbol(lattice.name) => OrderedDict(
-            :kind => :Lattice
-            :branches => branches
-        )
-    )
+function element_to_pals(ele::LineElement, context::Context)
+    pdict = flattened_pdict(ele)
+    info = OrderedDict{String,Any}()
 
-    for beamline in beamlines
-        push!(branches, Symbol(beamline.name))
+    up = deval(pdict[UniversalParams], context)
+    kind = String(up.kind)
+    if haskey(pdict, RFParams) && pdict[RFParams].is_crabcavity
+        kind = "CrabCavity"
     end
+    if isempty(kind)
+        # PALS requires a kind
+        kind = isdefault(up.L) ? "Marker" : "Drift"
+    end
+    info["kind"] = get(SCIBMAD_KIND_TO_PALS_KIND, kind, kind)
+    isdefault(up.L) || (info["length"] = pals_value(up.L))
+
+    for (T, name) in PARAMS_TO_PALS_GROUP
+        haskey(pdict, T) || continue
+        group = pals_group(deval(pdict[T], context))
+        isempty(group) || (info[name] = group)
+    end
+
+    # SciBmad bends have no field unless a dipole multipole is set, whereas the PALS
+    # default is to compute the dipole field from g_ref.
+    if haskey(info, "BendP") && haskey(info["BendP"], "g_ref")
+        mm = get(info, "MagneticMultipoleP", Dict())
+        if !any(k -> haskey(mm, k), ("Kn0", "Bn0", "Kn0L", "Bn0L"))
+            info["BendP"]["Kn0_from_g_ref"] = false
+        end
+    end
+
+    # The length of a SciBmad patch is set by the user
+    if haskey(pdict, PatchParams) || info["kind"] == "Patch"
+        get!(info, "PatchP", OrderedDict{String,Any}())["user_sets_length"] = true
+    end
+
+    if up.tracking_method != SciBmadStandard()
+        info["TrackingP"] = OrderedDict{String,Any}("SciBmad" => pals_tracking(up.tracking_method))
+    end
+
+    if haskey(pdict, IgnoreParams)
+        ignored = String[]
+        for T in pdict[IgnoreParams].ignore_params
+            if T == ApertureParams && haskey(info, "ApertureP")
+                info["ApertureP"]["aperture_active"] = false
+            else
+                i = findfirst(p -> p.first == T, PARAMS_TO_PALS_GROUP)
+                push!(ignored, isnothing(i) ? String(nameof(T)) : PARAMS_TO_PALS_GROUP[i].second)
+            end
+        end
+        isempty(ignored) || (info["SciBmad_ignore_params"] = ignored)
+    end
+
+    return info
 end

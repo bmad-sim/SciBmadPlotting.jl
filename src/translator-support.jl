@@ -92,9 +92,9 @@ This maps types of `PhaseReference` to the value they should appear
 as when translated into a PALS file.
 """
 const ZERO_PHASE_TO_PALS_MAP = Dict(
-    PhaseReference.Accelerating => nothing,
-    PhaseReference.BelowTransition => :BELOW_TRANSITION,
-    PhaseReference.AboveTransition => :ABOVE_TRANSITION,
+    PhaseRef.Accelerating => nothing,
+    PhaseRef.BelowTransition => :BELOW_TRANSITION,
+    PhaseRef.AboveTransition => :ABOVE_TRANSITION,
 )
 
 """

@@ -153,35 +153,6 @@ function add_parameter_group!(parameter_info::OrderedDict, parameter_group::BMul
     return
 end
 
-#= BMultipoleParams Overload =#
-function add_parameter_group!(parameter_info::OrderedDict, parameter_group::BMultipoleParams)
-    acc = OrderedDict()
-    
-    # This code is adapted from the override of `show()` in multipole.jl
-    for bm in parameter_group
-        if bm.n != 0
-            key = BMULTIPOLE_STRENGTH_INVERSE_MAP[(true, bm.order, bm.normalized, bm.integrated)]
-            acc[key] = bm.n
-        end
-
-        if bm.s != 0
-            key = BMULTIPOLE_STRENGTH_INVERSE_MAP[(false, bm.order, bm.normalized, bm.integrated)]
-            acc[key] = bm.s
-        end
-
-        if bm.tilt != 0
-            key = BMULTIPOLE_TILT_INVERSE_MAP[bm.order]
-            acc[key] = bm.tilt
-        end
-    end
-    # End adapted code
-
-    # If `acc` is empty, don't do anything
-    isempty(acc) || (parameter_info[:MagneticMultipoleP] = acc)
-
-    return
-end
-
 """
     Internal: format_beamline(line::Vector{LineElement}, branch::Branch)
 

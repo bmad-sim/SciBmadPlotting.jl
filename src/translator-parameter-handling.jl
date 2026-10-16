@@ -10,7 +10,7 @@ that store the fields and field values of a parameter group and populate the dic
 associated with elements with them.
 
 ## Arguments
-- `format_dict`     -- The dictionary to be modified which represents the information about a line element.
+- `parameter_info`  -- The dictionary to be modified which represents the information about a line element.
 - `parameter_group` -- An `AbstractParams` object containing the parameters to extract to `acc`.
 """
 function add_parameter_group!(parameter_info::OrderedDict, parameter_group::T) where{T <: AbstractParams}
@@ -151,4 +151,76 @@ function add_parameter_group!(parameter_info::OrderedDict, parameter_group::BMul
     isempty(acc) || (parameter_info[:MagneticMultipoleP] = acc)
 
     return
+end
+
+#= BMultipoleParams Overload =#
+function add_parameter_group!(parameter_info::OrderedDict, parameter_group::BMultipoleParams)
+    acc = OrderedDict()
+    
+    # This code is adapted from the override of `show()` in multipole.jl
+    for bm in parameter_group
+        if bm.n != 0
+            key = BMULTIPOLE_STRENGTH_INVERSE_MAP[(true, bm.order, bm.normalized, bm.integrated)]
+            acc[key] = bm.n
+        end
+
+        if bm.s != 0
+            key = BMULTIPOLE_STRENGTH_INVERSE_MAP[(false, bm.order, bm.normalized, bm.integrated)]
+            acc[key] = bm.s
+        end
+
+        if bm.tilt != 0
+            key = BMULTIPOLE_TILT_INVERSE_MAP[bm.order]
+            acc[key] = bm.tilt
+        end
+    end
+    # End adapted code
+
+    # If `acc` is empty, don't do anything
+    isempty(acc) || (parameter_info[:MagneticMultipoleP] = acc)
+
+    return
+end
+
+"""
+    Internal: format_beamline(line::Vector{LineElement}, branch::Branch)
+
+Creates a PALS-formatted nested dictionary with the name of `branch` and a `line`
+of the elements of all the SciBmad-beamlines in this SciBmad-branch.
+
+## Arguments
+- `line`  -- A vector containing all the `LineElement`s in `branch` in order
+- `branch` -- The `Branch` this is trying to format
+"""
+function scibmad_branch_to_pals_beamline(line::Vector{LineElement}, branch::Branch)
+    return OrderedDict(
+        Symbol(branch.name) => OrderedDict(
+            :kind => :Beamline
+            :line => line
+        )
+    )
+end
+
+"""
+    Internal: format_beamline(line::Vector{LineElement}, branch::Branch)
+
+Creates a PALS-formatted nested dictionary with the name of `branch` and a `line`
+of the elements of all the SciBmad-beamlines in this SciBmad-branch.
+
+## Arguments
+- `line`  -- A vector containing all the `LineElement`s in `branch` in order
+- `branch` -- The `Branch` this is trying to format
+"""
+function scibmad_lattice_to_pals_lattice(beamlines::Vector{Branch}, lattice::Lattice)
+    branches = []
+    ret = OrderedDict(
+        Symbol(lattice.name) => OrderedDict(
+            :kind => :Lattice
+            :branches => branches
+        )
+    )
+
+    for beamline in beamlines
+        push!(branches, Symbol(beamline.name))
+    end
 end

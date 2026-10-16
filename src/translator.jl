@@ -59,20 +59,43 @@ function lattice_to_pals(lattice::Lattice, new_file_name::String)
 
     # "Support" backend variables
     created_elements = Set{Symbol}()    # Keeps track of element names
+    beamlines = []  # An accumulator for the PALS-beamlines
 
     # Every element in the facility is defined first
     for branch in lattice.branches
-        # For every branch in the lattice...
+        # For every SciBmad-branch/PALS-beamline in the lattice...
 
+        line = [] # Accumulator for the elements in a SciBmad-branch/PALS-beamline
         for beamline in branch.beamlines
-            # For every beamline in the branch...
+            # For every SciBmad-beamline in the branch...
 
             for line_element in beamline.line
                 # For every element in the beamline...
 
-                # Translate the line element into PALS and push it onto the facility
-                push!(facility, element_to_pals(line_element))
+                if (!(line_element.name in created_elements))
+                    # Translate the line element into PALS if it hasn't already been
+                    formatted_element = element_to_pals(line_element)
+
+                    # Add the element's name to the set of created elements
+                    push!(created_elements, line_element.name)
+
+                    # Push the element onto the overall lattice's facility
+                    push!(facility, formatted_element)
+                end
+
+                # Push the element onto the beamline's line
+                push!(line, line_element.name)
             end
         end
+
+        push!(beamlines, scibmad_branch_to_pals_beamline(line, branch))
     end
+
+    # Add all the beamlines after the elements
+    for beamline in beamlines
+        push!(facility, beamline)
+    end
+
+    # Add the lattice after the beamlines
+
 end

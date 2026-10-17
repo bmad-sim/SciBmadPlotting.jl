@@ -11,7 +11,6 @@ using Beamlines: BMULTIPOLE_STRENGTH_INVERSE_MAP, BMULTIPOLE_TILT_INVERSE_MAP,
                  EMULTIPOLE_STRENGTH_INVERSE_MAP, EMULTIPOLE_TILT_INVERSE_MAP, Context, ParamDict, RefMeaning,
                  deval, flattened_pdict
 using OrderedCollections
-using YAML
 
 export to_pals, write_pals
 
@@ -19,5 +18,6 @@ export to_pals, write_pals
 include("translator-support.jl")
 include("translator-parameter-handling.jl")
 include("translator.jl")
+include("yaml.jl")
 
 end

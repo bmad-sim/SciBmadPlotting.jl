@@ -270,8 +270,11 @@ end
 Writes the SciBmad `Lattice`, `Branch` or `Beamline` `x` to the PALS YAML file `filename`.
 PALS files conventionally have the extension `.pals.yaml`. Keyword arguments are passed to
 `to_pals`.
+
+Strings are written without quotation marks where that is unambiguous, and BeamLine
+`line`s and other lists of names are written in the concise flow form `[a, b, c]`.
 """
 function write_pals(filename::AbstractString, x::Union{Lattice,Branch,Beamline}; kwargs...)
-    YAML.write_file(filename, to_pals(x; kwargs...))
+    open(io -> write_yaml(io, to_pals(x; kwargs...)), filename, "w")
     return
 end

@@ -115,7 +115,45 @@ end
         mktempdir() do dir
             file = joinpath(dir, "lat.pals.yaml")
             write_pals(file, lat)
-            @test YAML.load_file(file; dicttype=OrderedDict{String,Any}) == to_pals(lat)
+            @test read(file, String) == """
+                PALS:
+                  version: null
+                  facility:
+                    - b1_begin:
+                        kind: BeginningEle
+                        ReferenceP:
+                          species_ref: electron
+                          E_tot_ref: 1.0e9
+                    - d:
+                        kind: Drift
+                        length: 1
+                    - q:
+                        kind: Quadrupole
+                        length: 0.5
+                        MagneticMultipoleP:
+                          Kn1: 0.3
+                    - b1:
+                        kind: BeamLine
+                        line: [b1_begin, d, q]
+                    - lat:
+                        kind: Lattice
+                        branches: [b1]
+                """
+
+            # Long lines are continued, inline element overrides are flow mappings,
+            # and strings are quoted only when needed. All must read back unchanged.
+            d = Drift(name="d", L=1)
+            m = Marker(name="m", description="a: \"quoted\" string", label="true", alias="plain text")
+            ap = Drift(name="ap", L=1, x1_limit=-0.01, x2_limit=Inf)
+            bl = Beamline([fill(d, 40); Drift(name="d", L=2); m; ap; Drift(L=0)])
+            write_pals(file, bl)
+            text = read(file, String)
+            @test YAML.load_file(file; dicttype=OrderedDict{String,Any}) == to_pals(bl)
+            @test all(length(l) <= 100 for l in split(text, "\n"))
+            @test occursin("{d: {length: 2}}", text)
+            @test occursin("description: \"a: \\\"quoted\\\" string\"", text)
+            @test occursin("label: \"true\"", text)
+            @test occursin("alias: plain text", text)
         end
     end
 end

@@ -22,7 +22,8 @@ Two functions are exported:
 - `to_pals(x)` returns the PALS tree as a nested dictionary (`OrderedDict`). Use it to inspect
   or modify the result before writing it.
 - `write_pals(filename, x)` writes the PALS tree to a YAML file. By convention, PALS files
-  have the extension `.pals.yaml`.
+  have the extension `.pals.yaml`. Strings are written without quotation marks where that is
+  unambiguous. BeamLine `line`s and other lists of names use the concise form `[a, b, c]`.
 
 `x` can be a `Lattice`, a `Branch` or a `Beamline`.
 
@@ -44,49 +45,39 @@ This writes:
 
 ```yaml
 PALS:
-  version: ~
+  version: null
   facility:
     - b1_begin:
-        kind: "BeginningEle"
+        kind: BeginningEle
         ReferenceP:
-          species_ref: "electron"
+          species_ref: electron
           E_tot_ref: 1.8e10
     - qf:
-        kind: "Quadrupole"
+        kind: Quadrupole
         length: 0.5
         MagneticMultipoleP:
           Kn1: 0.36
     - d:
-        kind: "Drift"
+        kind: Drift
         length: 1.0
     - b:
-        kind: "Bend"
+        kind: Bend
         length: 2.0
         BendP:
           g_ref: 0.01
         MagneticMultipoleP:
           Kn0: 0.01
     - qd:
-        kind: "Quadrupole"
+        kind: Quadrupole
         length: 0.5
         MagneticMultipoleP:
           Kn1: -0.36
     - b1:
-        kind: "BeamLine"
-        line:
-          - "b1_begin"
-          - "qf"
-          - "d"
-          - "b"
-          - "d"
-          - "qd"
-          - "d"
-          - "b"
-          - "d"
+        kind: BeamLine
+        line: [b1_begin, qf, d, b, d, qd, d, b, d]
     - fodo_lattice:
-        kind: "Lattice"
-        branches:
-          - "b1"
+        kind: Lattice
+        branches: [b1]
 ```
 
 For a `Branch` or `Beamline`, the lattice name can be set with the `lattice_name` keyword
@@ -118,10 +109,7 @@ argument. For a `Beamline`, the branch name can also be set with the `name` keyw
   Parameters it does not have are set to `null` (unset). For example:
 
   ```yaml
-  line:
-    - "d"
-    - d:
-        length: 2
+  line: [d, {d: {length: 2}}]
   ```
 
 ### Element kinds

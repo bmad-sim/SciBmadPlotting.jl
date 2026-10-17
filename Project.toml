@@ -1,4 +1,4 @@
-name = "SciBmadSimUtils"
+name = "SciBmadUtils"
 uuid = "3e856990-45a3-412a-a926-6fe67cf92713"
 authors = ["David Sagan <david.sagan@gmail.com> and contributors"]
 version = "0.1.0"

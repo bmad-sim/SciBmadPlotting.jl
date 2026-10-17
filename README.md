@@ -1,6 +1,6 @@
-# SciBmadSimUtils.jl
+# SciBmadUtils.jl
 
-[![CI](https://github.com/bmad-sim/SciBmadSimUtils.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/bmad-sim/SciBmadSimUtils.jl/actions/workflows/CI.yml)
+[![CI](https://github.com/bmad-sim/SciBmadUtils.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/bmad-sim/SciBmadUtils.jl/actions/workflows/CI.yml)
 
 Simulation utilities for the [SciBmad](https://github.com/bmad-sim/SciBmad.jl) ecosystem.
 
@@ -12,7 +12,7 @@ Currently this package holds the translator from SciBmad lattices, built with
 
 ```julia
 import Pkg
-Pkg.add(url="https://github.com/bmad-sim/SciBmadSimUtils.jl")
+Pkg.add(url="https://github.com/bmad-sim/SciBmadUtils.jl")
 ```
 
 ## SciBmad to PALS translation
@@ -27,7 +27,7 @@ Two functions are exported:
 `x` can be a `Lattice`, a `Branch` or a `Beamline`.
 
 ```julia
-using Beamlines, SciBmadSimUtils
+using Beamlines, SciBmadUtils
 
 qf = Quadrupole(name="qf", L=0.5, Kn1=0.36)
 d  = Drift(name="d", L=1.0)

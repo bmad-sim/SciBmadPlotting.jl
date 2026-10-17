@@ -1,10 +1,10 @@
 """
-    SciBmadSimUtils
+    SciBmadUtils
 
 Simulation utilities for the SciBmad ecosystem. Currently this holds the translator from
 SciBmad lattices to the PALS lattice standard: see `to_pals` and `write_pals`.
 """
-module SciBmadSimUtils
+module SciBmadUtils
 
 using Beamlines
 using Beamlines: BMULTIPOLE_STRENGTH_INVERSE_MAP, BMULTIPOLE_TILT_INVERSE_MAP,

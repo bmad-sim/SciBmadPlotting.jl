@@ -1,4 +1,4 @@
-using SciBmadSimUtils
+using SciBmadUtils
 using Beamlines
 using OrderedCollections
 using YAML
@@ -12,7 +12,7 @@ function facility_entry(pals, name)
     error("No facility entry named $name")
 end
 
-@testset "SciBmadSimUtils.jl" begin
+@testset "SciBmadUtils.jl" begin
     @testset "Elements" begin
         a = 0.36
         qf = Quadrupole(name="qf", L=0.5, Kn1=DefExpr(()->a), tilt1=0.1)
